@@ -15,7 +15,7 @@ from queue import Queue
 from enum import Enum
 from cherrypy import _cpnative_server
 
-from .utils import load_xml, XMLPath, Setting, cherrypy_publish, SETTING_DIR
+from .utils import load_xml, XMLPath, Setting, SETTING_DIR
 
 logger = logging.getLogger("Protocol")
 logger.setLevel(logging.INFO)
@@ -865,9 +865,8 @@ class DLNAProtocol(Protocol):
 
 @cherrypy.expose
 class Handler:
-
     def __init__(self):
-        self.__downloading = False
+        pass
 
     @property
     def protocol(self) -> Protocol:
@@ -879,16 +878,6 @@ class Handler:
 
     def reload(self):
         cherrypy.server.httpserver = _cpnative_server.CPHTTPServer(cherrypy.server)
-
-    def __download_plugin(self, path, url):
-        try:
-            with open(path, 'wb') as f:
-                f.write(requests.get(url).content)
-        except Exception as e:
-            logger.error(f"download plugin error: {e}")
-        finally:
-            self.__downloading = False
-            Setting.restart()
 
     def GET(self, param=None, *args, **kwargs):
         raise cherrypy.HTTPError(404)
@@ -907,28 +896,8 @@ class Handler:
                 Setting.setting = setting
                 Setting.save()
                 Setting.restart()
-        elif kwargs.get('install-plugin', None) is not None:
-            plugin = kwargs.get('install-plugin', None)
-            if self.__downloading:
-                cherrypy.engine.publish('app_notify', 'ERROR', 'Downloading other plugin now')
-                res['code'] = 1
-                res['message'] = 'Downloading other plugin now'
-            else:
-                cherrypy.engine.publish('app_notify', 'INFO', 'installing plugin...')
-                self.__downloading = True
-                try:
-                    plugin = json.loads(plugin)
-                    url = plugin.get('url', '')
-                    plugin_name = url.split('/')[-1]
-                    local_path = os.path.join(SETTING_DIR, plugin.get('type', 'renderer'), plugin_name)
-                    threading.Thread(target=self.__download_plugin(local_path, url),
-                                     daemon=True).start()
-                except Exception as e:
-                    res['code'] = 1
-                    res['message'] = 'json format error'
         else:
             logger.info(kwargs)
-
         return json.dumps(res, indent=4).encode()
 
 

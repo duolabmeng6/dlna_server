@@ -17,8 +17,6 @@ import netifaces as ni
 logger = logging.getLogger("Utils")
 DEFAULT_PORT = 0
 SETTING_DIR = os.path.dirname(os.path.abspath(__file__))
-PROTOCOL_DIR = 'protocol'
-RENDERER_DIR = 'renderer'
 
 
 class SettingProperty(Enum):
