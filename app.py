@@ -514,6 +514,15 @@ class MainWindow(QMainWindow):
         self.auto_play_checkbox = QCheckBox("收到投屏自动打开播放器")
         self.auto_play_checkbox.stateChanged.connect(self.on_auto_play_changed)
         bottom_layout.addWidget(self.auto_play_checkbox)
+
+        self.auto_download_checkbox = QCheckBox("投屏后自动下载")
+        self.auto_download_checkbox.stateChanged.connect(self.on_auto_download_changed)
+        bottom_layout.addWidget(self.auto_download_checkbox)
+        
+        # 添加打开下载文件夹按钮
+        open_downloads_btn = QPushButton("打开下载文件夹")
+        open_downloads_btn.clicked.connect(self.open_downloads_folder)
+        bottom_layout.addWidget(open_downloads_btn)
         
         clear_btn = QPushButton("清空记录")
         clear_btn.clicked.connect(self.clear_history)
@@ -597,6 +606,12 @@ class MainWindow(QMainWindow):
                     os.startfile(f'potplayer://{url}')
                 except Exception as e:
                     print(f"自动打开PotPlayer失败: {e}")
+
+        # 如果启用了自动下载，则模拟点击下载按钮
+        if self.auto_download_checkbox.isChecked():
+            # 使用 QTimer 延迟一小段时间后再触发下载
+            # 这样可以确保界面完全初始化
+            QTimer.singleShot(500, lambda: item.download_btn.click())
         
         # 保存到历史记录
         try:
@@ -671,6 +686,7 @@ class MainWindow(QMainWindow):
                 with open('settings.json', 'r', encoding='utf-8') as f:
                     settings = json.load(f)
                     self.auto_play_checkbox.setChecked(settings.get('auto_play', False))
+                    self.auto_download_checkbox.setChecked(settings.get('auto_download', False))
         except Exception as e:
             print(f"加载自动播放设置失败: {e}")
 
@@ -683,6 +699,7 @@ class MainWindow(QMainWindow):
                     settings = json.load(f)
             
             settings['auto_play'] = self.auto_play_checkbox.isChecked()
+            settings['auto_download'] = self.auto_download_checkbox.isChecked()
             
             with open('settings.json', 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
@@ -691,6 +708,10 @@ class MainWindow(QMainWindow):
 
     def on_auto_play_changed(self, state):
         """处理自动播放复选框状态改变"""
+        self.save_auto_play_setting()
+
+    def on_auto_download_changed(self, state):
+        """处理自动下载复选框状态改变"""
         self.save_auto_play_setting()
 
     def start_server(self):
@@ -788,6 +809,20 @@ class MainWindow(QMainWindow):
         self.update_name_btn.setEnabled(enabled)
         self.update_name_btn.setText(text)
     
+    def open_downloads_folder(self):
+        """打开下载文件夹"""
+        try:
+            download_dir = Path("downloads")
+            # 如果文件夹不存在则创建
+            download_dir.mkdir(exist_ok=True)
+            
+            if platform.system() == "Darwin":  # macOS
+                os.system(f'open "{download_dir}"')
+            elif platform.system() == "Windows":  # Windows
+                os.startfile(str(download_dir))
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"打开下载文件夹失败: {str(e)}")
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
