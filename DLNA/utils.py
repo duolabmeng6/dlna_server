@@ -7,8 +7,9 @@ import logging
 import platform
 import cherrypy
 import subprocess
+import socket
+import psutil
 from enum import Enum
-import netifaces as ni
 
 
 
@@ -127,27 +128,21 @@ class Setting:
     @staticmethod
     def get_ip():
         last_ip = []
-        gateways = ni.gateways()  # {type: [{ip, interface, default},{},...], type: []}
+        # 获取所有网络接口
         interfaces = set(Setting.get(SettingProperty.Additional_Interfaces, []))
-        interface_type = [ni.AF_INET, ni.AF_LINK]
-        for t in interface_type:
-            if t in gateways:
-                for i in gateways[t]:
-                    if len(i) > 1:
-                        interfaces.add(i[1])
-        for i in Setting.get(SettingProperty.Blocked_Interfaces, []):
-            if i in interfaces:
-                interfaces.remove(i)
-        logger.debug(interfaces)
-        for i in interfaces:
-            try:
-                iface = ni.ifaddresses(i)
-            except ValueError as e:
+        
+        # 获取所有网络接口信息
+        for iface, addrs in psutil.net_if_addrs().items():
+            # 检查是否在被阻止的接口列表中
+            if iface in Setting.get(SettingProperty.Blocked_Interfaces, []):
                 continue
-            if ni.AF_INET in iface:
-                for j in iface[ni.AF_INET]:
-                    if 'addr' in j and 'netmask' in j:
-                        last_ip.append((j['addr'], j['netmask']))
+                
+            for addr in addrs:
+                # 只处理 IPv4 地址
+                if addr.family == socket.AF_INET:
+                    if addr.address and addr.netmask:
+                        last_ip.append((addr.address, addr.netmask))
+                        
         Setting.last_ip = set(last_ip)
         logger.debug(Setting.last_ip)
         return Setting.last_ip
