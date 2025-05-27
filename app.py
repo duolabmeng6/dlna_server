@@ -527,7 +527,7 @@ class MainWindow(QMainWindow):
             if os.path.exists('cast_history.json'):
                 with open('cast_history.json', 'r', encoding='utf-8') as f:
                     history = json.load(f)
-                    for item in reversed(history):
+                    for item in history:
                         self.add_download_item(item['url'], item['title'])
         except Exception as e:
             QMessageBox.warning(self, "错误", f"加载历史记录失败: {str(e)}")
@@ -720,7 +720,6 @@ class MainWindow(QMainWindow):
             
         try:
             # 停止服务器
-            self.dlna_server.remove_cast_callback(self.on_new_cast)
             self.dlna_server.stop()
             if self.server_thread:
                 self.server_thread.join(timeout=1.0)
@@ -778,7 +777,6 @@ class MainWindow(QMainWindow):
                     Q_ARG(str, str(e))
                 )
             finally:
-                # 恢复按钮状态
                 self.update_button_state.emit(True, "修改名称")
         
         # 在后台线程中执行更新操作
@@ -792,9 +790,6 @@ class MainWindow(QMainWindow):
     
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    
-    # 创建并显示主窗口
     window = MainWindow()
     window.show()
-    
     sys.exit(app.exec())
