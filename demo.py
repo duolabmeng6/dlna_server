@@ -4,7 +4,7 @@ from DLNA.server import Service
 from DLNA.renderer import Renderer
 from lxml import etree
 
-logger = logging.getLogger("Macast")
+logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
 
 def start_server():
