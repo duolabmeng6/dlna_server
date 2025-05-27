@@ -1,5 +1,3 @@
-
-
 import gettext
 import logging
 import cherrypy
@@ -11,10 +9,10 @@ logger.setLevel(logging.INFO)
 
 
 class Renderer:
-    """Media Renderer base class
-    By inheriting this class,
-    you can use a variety of players as media renderer
-    see also: class MPVRender
+    """媒体渲染器基类
+    通过继承此类，
+    你可以使用各种播放器作为媒体渲染器
+    参见：MPVRender类
     """
     support_platform = set()
 
@@ -25,12 +23,12 @@ class Renderer:
         self.renderer_setting = RendererSetting()
 
     def start(self):
-        """Start render thread
+        """启动渲染器线程
         """
         self.running = True
 
     def stop(self):
-        """Stop render thread
+        """停止渲染器线程
         """
         self.running = False
         cherrypy.engine.publish('renderer_av_stop')
@@ -46,13 +44,13 @@ class Renderer:
     def protocol(self) -> Protocol:
         protocols = cherrypy.engine.publish('get_protocol')
         if len(protocols) == 0:
-            logger.error("Unable to find an available protocol.")
+            logger.error("无法找到可用的协议。")
             return Protocol()
         return protocols.pop()
 
-    # If you want to write a new renderer adapted to another video player,
-    # please rewrite the following methods to control the video player you use.
-    # For details, please refer to DLNA_renderer/mpv.py:MPVRender
+    # 如果你想编写一个适配其他视频播放器的新渲染器，
+    # 请重写以下方法来控制你使用的视频播放器。
+    # 详情请参考 DLNA_renderer/mpv.py:MPVRender
 
     def set_media_stop(self):
         pass
@@ -64,45 +62,45 @@ class Renderer:
         pass
 
     def set_media_volume(self, data):
-        """ data : int, range from 0 to 100
+        """ data : 整数，范围从0到100
         """
         pass
 
     def set_media_mute(self, data):
-        """ data : bool
+        """ data : 布尔值
         """
         pass
 
     def set_media_url(self, url: str, start: str = "0"):
         """
-        :param url:
-        :param start: relative time
+        :param url: 媒体URL
+        :param start: 相对时间
             --start=+56, --start=00:56
-            Seeks to the start time + 56 seconds.
+            从开始时间 + 56秒处开始播放。
             --start=-56, --start=-00:56
-            Seeks to the end time - 56 seconds.
+            从结束时间 - 56秒处开始播放。
             --start=01:10:00
-            Seeks to 1 hour 10 min.
+            从1小时10分处开始播放。
             --start=50%
-            Seeks to the middle of the file.
+            从文件中间开始播放。
             --start=30
-            Seeks to 30 seconds
+            从30秒处开始播放
         :return:
         """
         pass
 
     def set_media_title(self, data):
-        """ data : string
+        """ data : 字符串
         """
         pass
 
     def set_media_position(self, data):
-        """ data : string position, 00:00:00
+        """ data : 字符串位置，格式为00:00:00
         """
         pass
 
     def set_media_sub_file(self, data):
-        """ set subtitle file path
+        """ 设置字幕文件路径
         :param data: {'url': '/home/ubuntu/danmaku.ass',
                       'title': 'danmaku'}
         :return:
@@ -110,16 +108,16 @@ class Renderer:
         pass
 
     def set_media_sub_show(self, data: bool):
-        """ set subtitle visibility
-        :param data:
+        """ 设置字幕可见性
+        :param data: 布尔值
         :return:
         """
         pass
 
     def set_media_text(self, data: str, duration: int = 1000):
-        """ show text on video player screen
-        :param data: string, text content
-        :param duration: ms
+        """ 在视频播放器屏幕上显示文本
+        :param data: 字符串，文本内容
+        :param duration: 毫秒
         :return:
         """
         pass
@@ -127,24 +125,23 @@ class Renderer:
     def set_media_speed(self, data: float):
         pass
 
-    # The following methods are usually used to update the states of
-    # DLNA Renderer according to the status obtained from the player.
-    # So, when your player state changes, call the following methods.
-    # For example, when you click the pause button of the player,
-    # call self.set_state('TransportState', 'PAUSED_PLAYBACK')
-    # Then, the DLNA client (such as your mobile phone) will
-    # automatically get this information and update it to the front-end.
+    # 以下方法通常用于根据从播放器获得的状态更新DLNA渲染器的状态。
+    # 因此，当播放器状态发生变化时，调用以下方法。
+    # 例如，当你点击播放器的暂停按钮时，
+    # 调用self.set_state('TransportState', 'PAUSED_PLAYBACK')
+    # 然后，DLNA客户端（如你的手机）将
+    # 自动获取此信息并更新到前端。
 
     def set_state_position(self, data: str):
         """
-        :param data: string, eg: 00:00:00
+        :param data: 字符串，例如：00:00:00
         :return:
         """
         self.protocol.set_state_position(data)
 
     def set_state_duration(self, data: str):
         """
-        :param data: string, eg: 00:00:00
+        :param data: 字符串，例如：00:00:00
         :return:
         """
         self.protocol.set_state_duration(data)
@@ -163,7 +160,7 @@ class Renderer:
 
     def set_state_transport(self, data: str):
         """
-        :param data: string in [PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
+        :param data: 字符串，可选值：[PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
         :return:
         """
         self.protocol.set_state_transport(data)
@@ -176,14 +173,14 @@ class Renderer:
 
     def set_state_mute(self, data: bool):
         """
-        :param data: bool
+        :param data: 布尔值
         :return:
         """
         self.protocol.set_state_mute(data)
 
     def set_state_volume(self, data: int):
         """
-        :param data: int, range from 0 to 100
+        :param data: 整数，范围从0到100
         :return:
         """
         self.protocol.set_state_volume(data)

@@ -11,14 +11,14 @@ from cherrypy.process.plugins import Monitor
 
 from .utils import Setting, XMLPath, SettingProperty, SETTING_DIR
 from .plugin import ProtocolPlugin, RendererPlugin, SSDPPlugin
-from .protocol import DLNAProtocol, Protocol, DLNAHandler
+from .protocol import Protocol
 
 logger = logging.getLogger("server")
 logger.setLevel(logging.DEBUG)
 
 
 def auto_change_port(fun):
-    """See AutoPortServer"""
+    """参见 AutoPortServer"""
 
     def wrapper(self):
         try:
@@ -38,9 +38,9 @@ def auto_change_port(fun):
 
 class AutoPortServer(Server):
     """
-    The modified Server can give priority to the preset port (Setting.DEFAULT_PORT).
-    When the preset port or the port in the configuration file cannot be used,
-    using the port randomly assigned by the system
+    修改后的服务器可以优先使用预设端口（Setting.DEFAULT_PORT）。
+    当预设端口或配置文件中的端口无法使用时，
+    使用系统随机分配的端口
     """
 
     @auto_change_port
@@ -52,21 +52,21 @@ class AutoPortServer(Server):
         try:
             self.httpserver.start()
         except KeyboardInterrupt:
-            self.bus.log('<Ctrl-C> hit: shutting down HTTP server')
+            self.bus.log('<Ctrl-C> 被按下：正在关闭HTTP服务器')
             self.interrupt = sys.exc_info()[1]
             self.bus.exit()
         except SystemExit:
-            self.bus.log('SystemExit raised: shutting down HTTP server')
+            self.bus.log('SystemExit 被触发：正在关闭HTTP服务器')
             self.interrupt = sys.exc_info()[1]
             self.bus.exit()
             raise
         except Exception:
             self.interrupt = sys.exc_info()[1]
             if 'WinError 10013' in str(self.interrupt):
-                self.bus.log('Error in HTTP server: WinError 10013')
+                self.bus.log('HTTP服务器错误：WinError 10013')
                 raise portend.Timeout
             else:
-                self.bus.log('Error in HTTP server: shutting down',
+                self.bus.log('HTTP服务器错误：正在关闭',
                              traceback=True, level=40)
                 self.interrupt = sys.exc_info()[1]
                 self.bus.exit()
@@ -77,12 +77,12 @@ class Service:
 
     def __init__(self, renderer, protocol):
         self.thread = None
-        # Replace the default server
+        # 替换默认服务器
         cherrypy.server.unsubscribe()
         cherrypy.server = AutoPortServer()
         cherrypy.server.bind_addr = ('0.0.0.0', Setting.get_port())
         cherrypy.server.subscribe()
-        # start plugins
+        # 启动插件
         self.ssdp_plugin = SSDPPlugin(cherrypy.engine)
         self.ssdp_plugin.subscribe()
         self._renderer = renderer
@@ -91,7 +91,7 @@ class Service:
         self._protocol = protocol
         self.protocol_plugin = ProtocolPlugin(cherrypy.engine, protocol)
         self.protocol_plugin.subscribe()
-        self.ssdp_monitor_counter = 0  # restart ssdp every 30s
+        self.ssdp_monitor_counter = 0  # 每30秒重启一次ssdp
         self.ssdp_monitor = Monitor(cherrypy.engine, self.notify, 3, name="SSDP_NOTIFY_THREAD")
         self.ssdp_monitor.subscribe()
         cherrypy.config.update({
@@ -145,9 +145,9 @@ class Service:
         self._protocol.handler.reload()
 
     def notify(self):
-        """ssdp do notify
-        Using cherrypy builtin plugin Monitor to trigger this method
-        see also: plugin.py -> class SSDPPlugin -> notify
+        """SSDP通知
+        使用cherrypy内置插件Monitor来触发此方法
+        另见：plugin.py -> class SSDPPlugin -> notify
         """
         self.ssdp_monitor_counter += 1
         if Setting.is_ip_changed() or self.ssdp_monitor_counter == 10:
@@ -156,29 +156,29 @@ class Service:
         cherrypy.engine.publish('ssdp_notify')
 
     def run(self):
-        """Start DLNAthread
+        """启动DLNA线程
         """
         cherrypy.engine.start()
-        # update current port
+        # 更新当前端口
         _, port = cherrypy.server.bound_addr
-        logger.info("Server current run on port: {}".format(port))
+        logger.info("服务器当前运行在端口：{}".format(port))
         if port != Setting.get(SettingProperty.ApplicationPort, 0):
             # todo 验证正确性
             usn = Setting.get_usn(refresh=True)
-            logger.error("Change usn to: {}".format(usn))
+            logger.error("更改usn为：{}".format(usn))
             Setting.set(SettingProperty.ApplicationPort, port)
             name = "DLNA({0:04d})".format(random.randint(0, 9999))
-            logger.error("Change name to: {}".format(name))
+            logger.error("更改名称为：{}".format(name))
             Setting.set_temp_friendly_name(name)
             self.protocol.handler.reload()
             cherrypy.engine.publish('ssdp_update_ip')
-        # service started
+        # 服务已启动
         cherrypy.engine.block()
-        # service stopped
-        logger.info("Service stopped")
+        # 服务已停止
+        logger.info("服务已停止")
 
     def stop(self):
-        """Stop DLNAthread
+        """停止DLNA线程
         """
         Setting.stop_service()
         if self.thread is not None:

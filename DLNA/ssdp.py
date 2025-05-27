@@ -32,7 +32,7 @@ class Sock:
         try:
             self.sock.sendto(response.format(self.ip).encode(), destination)
         except (AttributeError, socket.error) as msg:
-            logger.warning("failure sending out data: from {} to {}".format(self.ip, destination))
+            logger.warning("发送数据失败：从 {} 到 {}".format(self.ip, destination))
 
     def close(self):
         try:
@@ -43,9 +43,8 @@ class Sock:
 
 
 class SSDPServer:
-    """A class implementing a SSDP server.  The notify_received and
-    searchReceived methods are called when the appropriate type of
-    datagram is received by the server."""
+    """实现SSDP服务器的类。当服务器接收到适当类型的数据报时，
+    会调用notify_received和searchReceived方法。"""
     known = {}
 
     def __init__(self):
@@ -55,11 +54,11 @@ class SSDPServer:
         self.running = False
         self.ssdp_thread = None
         self.sending_byebye = True
-        # when ip is changed, we need SSDP thread to restart
-        # But we don't like SSDP sending any byebye data
+        # 当IP发生变化时，我们需要重启SSDP线程
+        # 但我们不希望SSDP发送任何byebye数据
 
     def start(self):
-        """Start ssdp background thread
+        """启动SSDP后台线程
         """
         if not self.running:
             self.running = True
@@ -68,11 +67,11 @@ class SSDPServer:
             self.ssdp_thread.start()
 
     def stop(self, byebye=True):
-        """Stop ssdp background thread
+        """停止SSDP后台线程
         """
         if self.running:
             self.running = False
-            # Wake up the socket, this will speed up exiting ssdp thread.
+            # 唤醒套接字，这将加快SSDP线程的退出速度
             try:
                 socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b'', (SSDP_ADDR, SSDP_PORT))
             except Exception as e:
@@ -82,13 +81,13 @@ class SSDPServer:
                 self.ssdp_thread.join()
 
     def run(self):
-        # create UDP server
+        # 创建UDP服务器
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        # set IP_MULTICAST_LOOP to false
+        # 设置IP_MULTICAST_LOOP为false
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
 
-        # set SO_REUSEADDR or SO_REUSEPORT
+        # 设置SO_REUSEADDR或SO_REUSEPORT
         if sys.platform == 'win32':
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         elif sys.platform == 'darwin':
@@ -96,16 +95,16 @@ class SSDPServer:
         elif hasattr(socket, "SO_REUSEPORT"):
             try:
                 self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-                logger.debug("SSDP set SO_REUSEPORT")
+                logger.debug("SSDP设置SO_REUSEPORT")
             except socket.error as e:
-                logger.error("SSDP cannot set SO_REUSEPORT")
+                logger.error("SSDP无法设置SO_REUSEPORT")
                 logger.error(str(e))
         elif hasattr(socket, "SO_REUSEADDR"):
             try:
                 self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                logger.debug("SSDP set SO_REUSEADDR")
+                logger.debug("SSDP设置SO_REUSEADDR")
             except socket.error as e:
-                logger.error("SSDP cannot set SO_REUSEADDR")
+                logger.error("SSDP无法设置SO_REUSEADDR")
                 logger.error(str(e))
 
         # self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 10)
@@ -116,7 +115,7 @@ class SSDPServer:
         self.sock_list = []
         for ip, mask in self.ip_list:
             try:
-                logger.error('add membership {}'.format(ip))
+                logger.error('添加成员 {}'.format(ip))
                 mreq = socket.inet_aton(SSDP_ADDR) + socket.inet_aton(ip)
                 self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
                 self.sock_list.append(Sock(ip))
@@ -127,7 +126,7 @@ class SSDPServer:
             self.sock.bind(('0.0.0.0', SSDP_PORT))
         except Exception as e:
             logger.error(e)
-            cherrypy.engine.publish("app_notify", "DLNA", "SSDP Can't start")
+            cherrypy.engine.publish("app_notify", "DLNA", "SSDP无法启动")
             threading.Thread(target=lambda: Setting.stop_service(), name="SSDP_STOP_THREAD").start()
             return
         self.sock.settimeout(1)
@@ -140,7 +139,7 @@ class SSDPServer:
                 continue
         self.shutdown()
         for ip, mask in self.ip_list:
-            logger.error("drop membership {}".format(ip))
+            logger.error("移除成员 {}".format(ip))
             mreq = socket.inet_aton(SSDP_ADDR) + socket.inet_aton(ip)
             try:
                 self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
@@ -157,7 +156,7 @@ class SSDPServer:
             self.unregister(st)
 
     def datagram_received(self, data, host_port):
-        """Handle a received multicast datagram."""
+        """处理接收到的多播数据报"""
 
         (host, port) = host_port
 
@@ -178,26 +177,25 @@ class SSDPServer:
         headers = dict(map(lambda x: (x[0].lower(), x[1]), headers))
 
         if cmd[0] != 'NOTIFY':
-            logger.info('SSDP command %s %s - from %s:%d' %
+            logger.info('SSDP命令 %s %s - 来自 %s:%d' %
                         (cmd[0], cmd[1], host, port))
         if cmd[0] == 'M-SEARCH' and cmd[1] == '*':
-            # SSDP discovery
+            # SSDP发现
             logger.debug('M-SEARCH *')
             logger.debug(data)
             self.discovery_request(headers, (host, port))
         elif cmd[0] == 'NOTIFY' and cmd[1] == '*':
-            # SSDP presence
+            # SSDP存在通知
             # logger.debug('NOTIFY *')
             pass
         else:
-            logger.warning('Unknown SSDP command %s %s' % (cmd[0], cmd[1]))
+            logger.warning('未知的SSDP命令 %s %s' % (cmd[0], cmd[1]))
 
     def register(self, usn, st, location, server=SERVER_ID,
                  cache_control='max-age=1800'):
-        """Register a service or device that this SSDP server will
-        respond to."""
+        """注册此SSDP服务器将响应的服务或设备"""
 
-        logging.info('Registering %s (%s)' % (st, location))
+        logging.info('注册 %s (%s)' % (st, location))
 
         self.known[usn] = {}
         self.known[usn]['USN'] = usn

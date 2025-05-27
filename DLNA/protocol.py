@@ -65,70 +65,74 @@ class Protocol:
             return None
         return renderers.pop()
 
-    # The following methods are called by the renderer to set the playback status within the protocol,
-    # which will be passed to the client (generally the mobile phone)
+    # 以下方法由渲染器调用，用于设置协议内的播放状态，这些状态将传递给客户端（通常是手机）
 
     def set_state_position(self, data: str):
         """
-        :param data: string, eg: 00:00:00
+        :param data: 字符串，例如：00:00:00
         :return:
         """
         pass
 
     def set_state_duration(self, data: str):
         """
-        :param data: string, eg: 00:00:00
+        :param data: 字符串，例如：00:00:00
         :return:
         """
         pass
 
     def set_state_pause(self):
         """
+        暂停播放
         :return:
         """
         pass
 
     def set_state_play(self):
         """
+        开始播放
         :return:
         """
         pass
 
     def set_state_stop(self):
         """
+        停止播放
         :return:
         """
         pass
 
     def set_state_eof(self):
         """
+        播放结束
         :return:
         """
         pass
 
     def set_state_transport(self, data: str):
         """
-        :param data: string in [PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
+        :param data: 字符串，可选值：[PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
         :return:
         """
         pass
 
     def set_state_transport_error(self):
         """
+        传输错误
         :return:
         """
         pass
 
     def set_state_mute(self, data: bool):
         """
-        :param data: bool
+        :param data: 布尔值，是否静音
         :return:
         """
         pass
 
     def set_state_volume(self, data: int):
         """
-        :param data: int 0-100
+        :param data: 整数，音量值 0-100
         :return:
         """
         pass
@@ -137,8 +141,8 @@ class Protocol:
         pass
 
     def set_state_display_subtitle(self, data: bool):
-        """ set custom subtitle file path
-        :param data: bool, whether display the subtitle
+        """ 设置自定义字幕文件路径
+        :param data: 布尔值，是否显示字幕
         :return:
         """
         pass
@@ -154,49 +158,49 @@ class Protocol:
 
     def get_state_title(self) -> str:
         """
-        :return: string, eg: demo
+        :return: 字符串，例如：demo
         """
         return ''
 
     def get_state_url(self) -> str:
         """
-        :return: string, eg: http://10.10.10.10/demo.mp4
+        :return: 字符串，例如：http://10.10.10.10/demo.mp4
         """
         return ''
 
     def get_state_position(self) -> str:
         """
-        :return: string, eg: 00:00:00
+        :return: 字符串，例如：00:00:00
         """
         return '00:00:00'
 
     def get_state_duration(self) -> str:
         """
-        :return: string, eg: 00:00:00
+        :return: 字符串，例如：00:00:00
         """
         return '00:00:00'
 
     def get_state_volume(self) -> int:
         """
-        :return: int, range from 0 to 100
+        :return: 整数，范围从0到100
         """
         return 80
 
     def get_state_mute(self) -> bool:
         """
-        :return: bool
+        :return: 布尔值，是否静音
         """
         return False
 
     def get_state_transport_state(self) -> str:
         """
-        :return: string in [PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
+        :return: 字符串，可选值：[PLAYING, PAUSED_PLAYBACK, STOPPED, NO_MEDIA_PRESENT]
         """
         return 'STOPPED'
 
     def get_state_transport_status(self) -> str:
         """
-        :return: string in [OK, ERROR_OCCURRED]
+        :return: 字符串，可选值：[OK, ERROR_OCCURRED]
         """
         return 'OK'
 
@@ -789,7 +793,7 @@ class DLNAProtocol(Protocol):
 
     def set_state_volume(self, data: int):
         """
-        :param data: int, range from 0 to 100
+        :param data: int 0-100
         :return:
         """
         self.set_state('Volume', data)

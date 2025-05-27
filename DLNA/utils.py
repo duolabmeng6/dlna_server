@@ -3,10 +3,8 @@ import sys
 import uuid
 import json
 import time
-import ctypes
 import logging
 import platform
-import locale
 import cherrypy
 import subprocess
 from enum import Enum
@@ -44,7 +42,7 @@ class Setting:
 
     @staticmethod
     def save():
-        """Save user settings
+        """保存用户设置
         """
         if not os.path.exists(SETTING_DIR):
             os.makedirs(SETTING_DIR)
@@ -53,7 +51,7 @@ class Setting:
 
     @staticmethod
     def load():
-        """Load user settings
+        """加载用户设置
         """
         logger.info("Load Setting")
         Setting.version = "0.0"
@@ -76,27 +74,27 @@ class Setting:
 
     @staticmethod
     def get_system_version():
-        """Get system version
+        """获取系统版本
         """
         return str(platform.release())
 
     @staticmethod
     def get_system():
-        """Get system name
+        """获取系统名称
         """
         return str(platform.system())
 
     @staticmethod
     def get_version():
-        """Get application version
+        """获取应用程序版本
         """
         return Setting.version
 
     @staticmethod
     def get_friendly_name():
-        """Get application friendly name
-        This name will show in the device search list of the DLNA client
-        and as player window default name.
+        """获取应用程序友好名称
+        此名称将显示在DLNA客户端的设备搜索列表中
+        并作为播放器窗口的默认名称。
         """
         if Setting.temp_friendly_name:
             return Setting.temp_friendly_name
@@ -108,7 +106,7 @@ class Setting:
 
     @staticmethod
     def get_usn(refresh=False):
-        """Get device unique identification
+        """获取设备唯一标识
         """
         dlna_id = str(uuid.uuid4())
         if not refresh:
@@ -156,13 +154,13 @@ class Setting:
 
     @staticmethod
     def get_port():
-        """Get application port
+        """获取应用程序端口
         """
         return Setting.get(SettingProperty.ApplicationPort, DEFAULT_PORT)
 
     @staticmethod
     def get(property, default=1):
-        """Get application settings
+        """获取应用程序设置
         """
         if not bool(Setting.setting):
             Setting.load()
@@ -173,7 +171,7 @@ class Setting:
 
     @staticmethod
     def set(property, data):
-        """Set application settings
+        """设置应用程序设置
         """
         Setting.setting[property.name] = data
         Setting.save()
@@ -185,10 +183,9 @@ class Setting:
 
     @staticmethod
     def get_base_path(path="."):
-        """PyInstaller creates a temp folder and stores path in _MEIPASS
+        """PyInstaller会创建一个临时文件夹并将路径存储在_MEIPASS中
             https://stackoverflow.com/a/13790741
-            see also: https://pyinstaller.readthedocs.io/en/stable/\
-                runtime-information.html#run-time-information
+            另见：https://pyinstaller.readthedocs.io/en/stable/runtime-information.html#run-time-information
         """
         if Setting.base_path is not None:
             return os.path.join(Setting.base_path, path)
@@ -259,63 +256,5 @@ def load_xml(path):
     return xml
 
 
-def notify_error(msg=None):
-    """publish a notification when error occured
-    """
-
-    def wrapper_fun(fun):
-        def wrapper(*args, **kwargs):
-            nonlocal msg
-            try:
-                return fun(*args, **kwargs)
-            except Exception as e:
-                logger.error(str(e))
-                if msg is None:
-                    msg = str(e)
-                else:
-                    logger.error(msg)
-                cherrypy.engine.publish('app_notify', 'Error', msg)
-
-        return wrapper
-
-    return wrapper_fun
 
 
-def publish_method(func):
-    def wrap(*args, **kwargs):
-        func(*args, **kwargs)
-        cherrypy.engine.publish(func.__name__, *args, **kwargs)
-
-    return wrap
-
-
-
-
-
-def cherrypy_publish(method, default=None):
-    res = cherrypy.engine.publish(method)
-    if len(res) > 0:
-        return res.pop()
-    return default
-
-
-def get_local_ip():
-    """
-    获取本地IP地址
-    :return: list
-    """
-    ip_list = []
-    interfaces = ni.interfaces()
-    blocked = set(Setting.get(SettingProperty.Blocked_Interfaces, []))
-    interfaces = set(Setting.get(SettingProperty.Additional_Interfaces, []))
-
-    for i in interfaces:
-        try:
-            iface = ni.ifaddresses(i)
-        except ValueError as e:
-            continue
-        if ni.AF_INET in iface:
-            for j in iface[ni.AF_INET]:
-                if 'addr' in j and 'netmask' in j:
-                    ip_list.append((j['addr'], j['netmask']))
-    return ip_list

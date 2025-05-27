@@ -1,7 +1,6 @@
-
 #
-# Cherrypy Plugins
-# Cherrypy uses Plugin to run background thread
+# Cherrypy插件
+# Cherrypy使用插件来运行后台线程
 #
 
 from cherrypy.process import plugins
@@ -15,18 +14,18 @@ logger = logging.getLogger("PLUGIN")
 
 
 class RendererPlugin(plugins.SimplePlugin):
-    """Run a background player thread
+    """运行后台播放器线程
     """
 
     def __init__(self, bus, renderer):
-        logger.info('Initializing RenderPlugin')
+        logger.info('初始化RenderPlugin')
         super(RendererPlugin, self).__init__(bus)
         self.renderer = renderer
 
     def start(self):
-        """Start RenderPlugin
+        """启动RenderPlugin
         """
-        logger.info('starting RenderPlugin')
+        logger.info('正在启动RenderPlugin')
         self.renderer.start()
         self.bus.subscribe('reload_renderer', self.renderer.reload)
         self.bus.subscribe('get_renderer', self.get_renderer)
@@ -35,9 +34,9 @@ class RendererPlugin(plugins.SimplePlugin):
             self.bus.subscribe(method, getattr(self.renderer, method))
 
     def stop(self):
-        """Stop RenderPlugin
+        """停止RenderPlugin
         """
-        logger.info('Stopping RenderPlugin')
+        logger.info('正在停止RenderPlugin')
         self.bus.unsubscribe('reload_renderer', self.renderer.reload)
         self.bus.unsubscribe('get_renderer', self.get_renderer)
         self.bus.unsubscribe('set_renderer', self.set_renderer)
@@ -55,24 +54,24 @@ class RendererPlugin(plugins.SimplePlugin):
 
 
 class ProtocolPlugin(plugins.SimplePlugin):
-    """Run a background protocol thread
+    """运行后台协议线程
     """
 
     def __init__(self, bus, protocol):
-        logger.info('Initializing ProtocolPlugin')
+        logger.info('初始化ProtocolPlugin')
         super(ProtocolPlugin, self).__init__(bus)
         self.protocol = protocol
 
     def reload_protocol(self):
-        """Reload protocol
+        """重新加载协议
         """
         self.protocol.stop()
         self.protocol.start()
 
     def start(self):
-        """Start ProtocolPlugin
+        """启动ProtocolPlugin
         """
-        logger.info('starting ProtocolPlugin')
+        logger.info('正在启动ProtocolPlugin')
         self.protocol.start()
         self.bus.subscribe('reload_protocol', self.protocol.reload)
         self.bus.subscribe('get_protocol', self.get_protocol)
@@ -81,9 +80,9 @@ class ProtocolPlugin(plugins.SimplePlugin):
             self.bus.subscribe(method, getattr(self.protocol, method))
 
     def stop(self):
-        """Stop ProtocolPlugin
+        """停止ProtocolPlugin
         """
-        logger.info('Stopping ProtocolPlugin')
+        logger.info('正在停止ProtocolPlugin')
         self.bus.unsubscribe('reload_protocol', self.protocol.reload)
         self.bus.unsubscribe('get_protocol', self.get_protocol)
         self.bus.unsubscribe('set_protocol', self.set_protocol)
@@ -101,11 +100,11 @@ class ProtocolPlugin(plugins.SimplePlugin):
 
 
 class SSDPPlugin(plugins.SimplePlugin):
-    """Run a background SSDP thread
+    """运行后台SSDP线程
     """
 
     def __init__(self, bus):
-        logger.info('Initializing SSDPPlugin')
+        logger.info('初始化SSDPPlugin')
         super(SSDPPlugin, self).__init__(bus)
         self.restart_lock = threading.Lock()
         self.ssdp = SSDPServer()
@@ -127,13 +126,13 @@ class SSDPPlugin(plugins.SimplePlugin):
         ]
 
     def notify(self):
-        """ssdp do notify
+        """SSDP执行通知
         """
         for device in self.devices:
             self.ssdp.do_notify(device)
 
     def register(self):
-        """register device
+        """注册设备
         """
         for device in self.devices:
             self.ssdp.register(device,
@@ -143,13 +142,13 @@ class SSDPPlugin(plugins.SimplePlugin):
                                'max-age=66')
 
     def unregister(self):
-        """unregister device
+        """注销设备
         """
         for device in self.devices:
             self.ssdp.unregister(device)
 
     def update_ip(self):
-        """Update the device ip address
+        """更新设备IP地址
         """
         with self.restart_lock:
             self.ssdp.stop(byebye=False)
@@ -158,18 +157,18 @@ class SSDPPlugin(plugins.SimplePlugin):
             self.ssdp.start()
 
     def start(self):
-        """Start SSDPPlugin
+        """启动SSDPPlugin
         """
-        logger.info('starting SSDPPlugin')
+        logger.info('正在启动SSDPPlugin')
         self.register()
         self.ssdp.start()
         self.bus.subscribe('ssdp_notify', self.notify)
         self.bus.subscribe('ssdp_update_ip', self.update_ip)
 
     def stop(self):
-        """Stop SSDPPlugin
+        """停止SSDPPlugin
         """
-        logger.info('Stoping SSDPPlugin')
+        logger.info('正在停止SSDPPlugin')
         self.bus.unsubscribe('ssdp_notify', self.notify)
         self.bus.unsubscribe('ssdp_update_ip', self.update_ip)
         with self.restart_lock:
