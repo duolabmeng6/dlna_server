@@ -331,7 +331,7 @@ class DownloadItem(QFrame):
                             print(f"读取全屏设置失败: {e}")
                         
                         # 使用IINA打开URL
-                        fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                        fullscreen_arg = "" if fullscreen else ""
                         os.system(f'open -a IINA {fullscreen_arg} "{self.url}"')
                         self.status_label.setText("✅ 已使用IINA开始预览")
                         self.status_label.setVisible(True)
@@ -524,7 +524,7 @@ class DownloadItem(QFrame):
                     window.iina_controller.start_iina(self.downloaded_file_path, fullscreen)
                 else:
                     # 如果没有IINA控制器，直接使用系统命令打开
-                    fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                    fullscreen_arg = "" if fullscreen else ""
                     os.system(f'open -a IINA {fullscreen_arg} "{self.downloaded_file_path}"')
             elif action == "使用PotPlayer播放" and system == "Windows":
                 try:
@@ -938,7 +938,7 @@ class MainWindow(QMainWindow):
                             print(f"读取全屏设置失败: {e}")
                         
                         # 使用IINA打开URL
-                        fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                        fullscreen_arg = "--fullscreen" if fullscreen else ""
                         os.system(f'open -a IINA {fullscreen_arg} "{url}"')
                         print(f"已使用IINA自动打开播放器: {title}")
                     else:
