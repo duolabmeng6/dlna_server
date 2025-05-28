@@ -58,11 +58,10 @@ class DLNAServer:
                 self.current_title = None
                 self.external_renderer = external_renderer
             
-            def set_media_url(self, uri, start="0"):
+            def set_media_url(self, uri, title="0"):
                 self.current_url = uri
-                self.external_renderer.set_media_url(uri)
-                if self.current_url:  # 如果URL已经设置，通知投屏
-                    self.server._notify_cast(self.current_url, self.current_title)
+                self.current_title = title
+                self.server._notify_cast(self.current_url, self.current_title)
             
             def set_media_pause(self):
                 # 如果有外部渲染器，则使用外部渲染器处理

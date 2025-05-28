@@ -622,11 +622,11 @@ class MainWindow(QMainWindow):
         first_column_layout = QVBoxLayout(first_column)
         first_column_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.auto_play_checkbox = QCheckBox("收到投屏自动打开播放器")
+        self.auto_play_checkbox = QCheckBox("收到投屏自动播放")
         self.auto_play_checkbox.stateChanged.connect(self.on_auto_play_changed)
         first_column_layout.addWidget(self.auto_play_checkbox)
 
-        self.auto_download_checkbox = QCheckBox("投屏后自动下载")
+        self.auto_download_checkbox = QCheckBox("收到投屏自动下载")
         self.auto_download_checkbox.stateChanged.connect(self.on_auto_download_changed)
         first_column_layout.addWidget(self.auto_download_checkbox)
         
@@ -758,10 +758,6 @@ class MainWindow(QMainWindow):
         
         # 如果启用了自动播放，则自动打开播放器
         if self.auto_play_checkbox.isChecked():
-            # 设置标题（必须在播放前设置，这样在播放时才能同步给DLNA）
-            self.mpv_dlna_renderer.set_media_title(title)
-            
-            # 使用DLNA渲染器播放，它会根据设置选择正确的播放器
             if self.mpv_dlna_renderer.set_media_url(url):
                 print(f"自动打开播放器成功: {title}")
             else:

@@ -374,6 +374,7 @@ class MPVController(QObject):
         """启动MPV播放器并连接到IPC套接字"""
         # 如果MPV已经在运行，则直接加载新URL而不重启
         if self.process and self.socket:
+            print("MPV已经在运行，直接加载新URL", url)
             try:
                 # 尝试直接加载新文件
                 success = self.command({
@@ -729,16 +730,14 @@ class MPVDLNARenderer:
             print(f"读取默认播放器设置失败: {e}")
         return 'mpv'  # 默认使用MPV
         
-    def set_media_url(self, uri, start="0"):
+    def set_media_url(self, uri, title=""):
         """设置媒体URL"""
         self.current_url = uri
-        
+        self.current_title = title
         # 获取默认播放器类型
         player_type = self.get_player_type()
-        
         # 播放成功标志
         play_success = False
-        
         # 根据默认播放器类型选择使用哪个控制器
         if player_type == 'iina' and platform.system() == "Darwin" and self.iina_controller:
             # 使用IINA控制器
@@ -751,14 +750,8 @@ class MPVDLNARenderer:
         if play_success:
             self.is_playing = True
             self.set_state_play()
-        
+
         return play_success
-    
-    def set_media_title(self, title):
-        """设置媒体标题"""
-        self.current_title = title
-        if self.current_url:  # 如果URL已经设置，通知投屏
-            self.dlna_server._notify_cast(self.current_url, self.current_title)
     
     def set_media_pause(self):
         """暂停播放"""
