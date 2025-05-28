@@ -1,6 +1,6 @@
 {
   "auto_play": true,
   "auto_download": false,
-  "default_player": "mpv",
+  "default_player": "iina",
   "fullscreen": true
 }

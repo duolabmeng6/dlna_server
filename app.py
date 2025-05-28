@@ -212,7 +212,7 @@ class DownloadItem(QFrame):
         btn_layout.addWidget(self.preview_btn)
 
         # 复制按钮
-        self.copy_btn = QPushButton("复制")
+        self.copy_btn = QPushButton("复制完整URL")
         self.copy_btn.clicked.connect(self.copy_url)
         btn_layout.addWidget(self.copy_btn)
 
@@ -443,9 +443,23 @@ class DownloadItem(QFrame):
                     subprocess.Popen(mpv_args)
             elif action == "使用IINA播放" and system == "Darwin":
                 if window.iina_controller:
-                    window.iina_controller.start_iina(self.downloaded_file_path)
+                    # 检查是否启用全屏模式
+                    fullscreen = False
+                    try:
+                        if os.path.exists('settings.json'):
+                            with open('settings.json', 'r', encoding='utf-8') as f:
+                                settings = json.load(f)
+                                fullscreen = settings.get('fullscreen', False)
+                    except Exception as e:
+                        print(f"读取全屏设置失败: {e}")
+                        fullscreen = False
+                    
+                    # 使用IINA控制器播放，并传递全屏参数
+                    window.iina_controller.start_iina(self.downloaded_file_path, fullscreen)
                 else:
-                    os.system(f'open -a IINA "{self.downloaded_file_path}"')
+                    # 如果没有IINA控制器，直接使用系统命令打开
+                    fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                    os.system(f'open -a IINA {fullscreen_arg} "{self.downloaded_file_path}"')
             elif action == "使用PotPlayer播放" and system == "Windows":
                 os.startfile(f'potplayer://"{self.downloaded_file_path}"')
                 

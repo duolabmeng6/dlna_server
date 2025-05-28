@@ -254,8 +254,13 @@ class IINAController(QObject):
             })
             self.command_counter += 1
 
-    def start_iina(self, url):
-        """启动IINA播放器播放URL"""
+    def start_iina(self, url, fullscreen=None):
+        """启动IINA播放器播放URL
+        
+        Args:
+            url: 要播放的URL
+            fullscreen: 是否全屏播放，None表示从设置文件读取
+        """
         if not self.iina_cli_path:
             print("未找到IINA命令行工具")
             self.iina_connection_error.emit("未找到IINA命令行工具")
@@ -263,14 +268,16 @@ class IINAController(QObject):
             
         try:
             # 检查是否启用全屏模式
-            fullscreen = False
-            try:
-                if os.path.exists('settings.json'):
-                    with open('settings.json', 'r', encoding='utf-8') as f:
-                        settings = json.load(f)
-                        fullscreen = settings.get('fullscreen', False)
-            except Exception as e:
-                print(f"读取全屏设置失败: {e}")
+            use_fullscreen = fullscreen
+            if use_fullscreen is None:
+                try:
+                    if os.path.exists('settings.json'):
+                        with open('settings.json', 'r', encoding='utf-8') as f:
+                            settings = json.load(f)
+                            use_fullscreen = settings.get('fullscreen', False)
+                except Exception as e:
+                    print(f"读取全屏设置失败: {e}")
+                    use_fullscreen = False
             
             # 构建命令
             cmd = [self.iina_cli_path]
@@ -279,8 +286,8 @@ class IINAController(QObject):
             cmd.append("--mpv-input-ipc-server=" + self.socket_path)
             cmd.append("--mpv-title=龙龙的电视机")
             
-            if fullscreen:
-                cmd.append("--fullscreen")
+            if use_fullscreen:
+                cmd.append("--mpv-fullscreen")
             
             # 添加URL
             cmd.append(url)
@@ -777,10 +784,21 @@ class MPVDLNARenderer:
         player_type = self.get_player_type()
         # 播放成功标志
         play_success = False
+        
+        # 检查是否启用全屏模式
+        fullscreen = False
+        try:
+            if os.path.exists('settings.json'):
+                with open('settings.json', 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    fullscreen = settings.get('fullscreen', False)
+        except Exception as e:
+            print(f"读取全屏设置失败: {e}")
+        
         # 根据默认播放器类型选择使用哪个控制器
         if player_type == 'iina' and platform.system() == "Darwin" and self.iina_controller:
-            # 使用IINA控制器
-            play_success = self.iina_controller.start_iina(uri)
+            # 使用IINA控制器，并传递全屏参数
+            play_success = self.iina_controller.start_iina(uri, fullscreen)
         elif self.mpv_controller:
             # 使用MPV控制器
             play_success = self.mpv_controller.start_mpv(uri)
