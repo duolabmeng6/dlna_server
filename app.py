@@ -267,9 +267,6 @@ class DownloadItem(QFrame):
         try:
             # 使用DLNA渲染器播放
             if window.mpv_dlna_renderer:
-                # 设置标题（必须在播放前设置，这样在播放时才能同步给DLNA）
-                window.mpv_dlna_renderer.set_media_title(self.title)
-                
                 # 播放媒体
                 if window.mpv_dlna_renderer.set_media_url(self.url):
                     self.status_label.setText("✅ 已开始预览")

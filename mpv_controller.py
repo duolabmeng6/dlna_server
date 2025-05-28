@@ -8,7 +8,7 @@ import subprocess
 import socket
 import tempfile
 import random
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, QTimer, QMetaObject, Qt, Slot
 import shlex
 
 # 添加获取基础路径的函数
@@ -277,6 +277,7 @@ class IINAController(QObject):
             
             # 添加参数
             cmd.append("--mpv-input-ipc-server=" + self.socket_path)
+            cmd.append("--mpv-title=龙龙的电视机")
             
             if fullscreen:
                 cmd.append("--fullscreen")
@@ -343,6 +344,7 @@ class IINAController(QObject):
     
     def set_volume(self, volume):
         """设置音量（0-100）"""
+        print("设置音量", volume)
         cmd = {"command": ["set_property", "volume", volume]}
         return self._send_ipc_command(cmd)
     
@@ -420,6 +422,7 @@ class MPVController(QObject):
                 "--keep-open=yes",
                 "--ontop",
                 "--no-terminal",
+                "--title=龙龙的电视机",
             ]
             
             # 如果启用了全屏，添加全屏参数
@@ -636,17 +639,46 @@ class MPVController(QObject):
     
     def set_volume(self, volume):
         """设置音量（0-100）"""
+        print("设置音量", volume)
         return self.command({
             "command": ["set_property", "volume", volume]
         })
     
     def set_mute(self, mute=True):
         """设置静音状态"""
+        print("设置静音", mute)
         return self.command({
             "command": ["set_property", "mute", mute]
         })
     
     def stop(self):
+        """停止播放并关闭MPV"""
+        if self.process:
+            # 设置当前URL为None
+            print("停止播放")
+            self.set_pause(True)
+            
+            self.current_url = None
+            
+            # 使用线程而不是QTimer来延迟关闭
+            def delayed_check():
+                time.sleep(5)  # 等待5秒
+                # 使用Qt的信号槽机制在主线程中安全地调用check_and_close
+                QMetaObject.invokeMethod(self, "check_and_close", Qt.QueuedConnection)
+            
+            # 启动后台线程
+            threading.Thread(target=delayed_check, daemon=True).start()
+
+    # 将check_and_close方法标记为槽，以便可以从其他线程调用
+    @Slot()
+    def check_and_close(self):
+        """检查是否有新的URL投递进来"""
+        print("检查是否有新的URL投递进来", self.current_url)
+        
+        if self.current_url == None:
+            self.close()
+
+    def close(self):
         """停止播放并关闭MPV"""
         if self.process:
             try:
@@ -802,6 +834,7 @@ class MPVDLNARenderer:
     
     def set_media_volume(self, volume):
         """设置音量"""
+        print("设置音量", volume)
         self.current_volume = volume
         
         player_type = self.get_player_type()
@@ -815,6 +848,7 @@ class MPVDLNARenderer:
     
     def set_media_mute(self, mute):
         """设置静音"""
+        print("设置静音", mute)
         self.current_mute = mute
         
         player_type = self.get_player_type()
@@ -874,6 +908,7 @@ class MPVDLNARenderer:
     
     def set_state_volume(self, volume):
         """设置音量状态"""
+        print("设置音量", volume)
         if self.dlna_server and self.dlna_server.renderer:
             if hasattr(self.dlna_server.renderer, 'protocol'):
                 if self.dlna_server.renderer.protocol:
@@ -881,6 +916,7 @@ class MPVDLNARenderer:
     
     def set_state_mute(self, mute):
         """设置静音状态"""
+        print("设置静音", mute)
         if self.dlna_server and self.dlna_server.renderer:
             if hasattr(self.dlna_server.renderer, 'protocol'):
                 if self.dlna_server.renderer.protocol:

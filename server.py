@@ -5,7 +5,8 @@ from DLNA.renderer import Renderer
 from DLNA.utils import Setting
 
 logger = logging.getLogger("DLNAServer")
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBU G)
+logger.setLevel(logging.INFO)
 
 class DLNAServer:
     def __init__(self, name="DLNA Server"):
@@ -64,32 +65,32 @@ class DLNAServer:
                 self.server._notify_cast(self.current_url, self.current_title)
             
             def set_media_pause(self):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info("调用 set_media_pause")
                 if self.external_renderer:
                     self.external_renderer.set_media_pause()
             
             def set_media_resume(self):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info("调用 set_media_resume")
                 if self.external_renderer:
                     self.external_renderer.set_media_resume()
             
             def set_media_stop(self):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info("调用 set_media_stop")
                 if self.external_renderer:
                     self.external_renderer.set_media_stop()
             
             def set_media_volume(self, volume):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info(f"调用 set_media_volume, volume={volume}")
                 if self.external_renderer:
                     self.external_renderer.set_media_volume(volume)
             
             def set_media_mute(self, mute):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info(f"调用 set_media_mute, mute={mute}")
                 if self.external_renderer:
                     self.external_renderer.set_media_mute(mute)
             
             def set_media_position(self, position):
-                # 如果有外部渲染器，则使用外部渲染器处理
+                logger.info(f"调用 set_media_position, position={position}")
                 if self.external_renderer:
                     self.external_renderer.set_media_position(position)
         
