@@ -158,12 +158,13 @@ def truncate_url(url, max_length=50):
 
 # 下载项目组件
 class DownloadItem(QFrame):
-    def __init__(self, download_id, title, url, parent=None):
+    def __init__(self, download_id, title, url, parent=None, timestamp=None):
         super().__init__(parent)
         self.download_id = download_id
         self.title = title
         self.url = url
         self.downloaded_file_path = None
+        self.timestamp = timestamp or time.strftime("%Y-%m-%d %H:%M:%S")  # 如果没有传入时间，使用当前时间
         self.setup_ui()
         self.check_existing_file()  # 添加检查现有文件
         
@@ -189,6 +190,11 @@ class DownloadItem(QFrame):
         self.url_label = QLabel(truncate_url(self.url))
         self.url_label.setToolTip(self.url)
         info_layout.addWidget(self.url_label)
+        
+        # 投屏时间
+        self.time_label = QLabel(f"投屏时间: {self.timestamp}")
+        self.time_label.setStyleSheet("color: #666; font-size: 10px;")
+        info_layout.addWidget(self.time_label)
 
         main_layout.addLayout(info_layout)
 
@@ -256,11 +262,27 @@ class DownloadItem(QFrame):
                     self.download_btn.setText("打开文件")
                     self.download_btn.clicked.disconnect()
                     self.download_btn.clicked.connect(self.open_file)
-                    self.status_label.setText(f"文件已存在：{file_path.name}")
+                    
+                    # 获取文件大小
+                    file_size = file_path.stat().st_size
+                    size_str = self.format_file_size(file_size)
+                    
+                    self.status_label.setText(f"文件已存在：{file_path.name} ({size_str})")
                     self.status_label.setVisible(True)
                     break
         except Exception as e:
             print(f"检查文件是否存在时出错: {e}")
+            
+    def format_file_size(self, size_bytes):
+        """格式化文件大小显示"""
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes/1024:.1f} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes/(1024*1024):.1f} MB"
+        else:
+            return f"{size_bytes/(1024*1024*1024):.2f} GB"
 
     def preview_media(self):
         """预览媒体，使用设置的默认播放器"""
@@ -360,17 +382,9 @@ class DownloadItem(QFrame):
     def start_download(self):
         """开始下载或打开已存在的文件"""
         if self.downloaded_file_path and Path(self.downloaded_file_path).exists():
-            reply = QMessageBox.question(
-                self,
-                "文件已存在",
-                "该文件已经下载，是否重新下载？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if reply == QMessageBox.No:
-                self.open_file()
-                return
+            # 直接打开文件，不再弹出确认对话框
+            self.open_file()
+            return
                 
         # 开始新的下载
         self.downloaded_file_path = None  # 重置文件路径
@@ -425,7 +439,16 @@ class DownloadItem(QFrame):
         """下载完成"""
         self.downloaded_file_path = file_path
         self.progress_bar.setValue(100)
-        self.status_label.setText(f"✅ 下载完成：{Path(file_path).name}")
+        
+        # 获取文件大小
+        try:
+            file_size = Path(file_path).stat().st_size
+            size_str = self.format_file_size(file_size)
+            self.status_label.setText(f"✅ 下载完成：{Path(file_path).name} ({size_str})")
+        except Exception as e:
+            # 如果获取文件大小失败，仍然显示下载完成
+            self.status_label.setText(f"✅ 下载完成：{Path(file_path).name}")
+            
         self.download_btn.setText("打开文件")
         self.download_btn.setVisible(True)
         self.download_btn.clicked.disconnect()  # 断开原有的下载信号连接
@@ -803,18 +826,20 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(bottom_group)
     
     def load_history(self):
+        """加载历史记录"""
         try:
             if os.path.exists('cast_history.json'):
                 with open('cast_history.json', 'r', encoding='utf-8') as f:
                     history = json.load(f)
                     for item in history:
-                        self.add_download_item(item['url'], item['title'])
+                        timestamp = item.get('timestamp', '')
+                        self.add_download_item(item['url'], item['title'], timestamp)
         except Exception as e:
             QMessageBox.warning(self, "错误", f"加载历史记录失败: {str(e)}")
     
-    def add_download_item(self, url, title):
+    def add_download_item(self, url, title, timestamp):
         download_id = f"download_{int(time.time() * 1000)}"
-        item = DownloadItem(download_id, title, url)
+        item = DownloadItem(download_id, title, url, timestamp=timestamp)
         self.content_layout.insertWidget(0, item)
         return item
     
@@ -862,7 +887,7 @@ class MainWindow(QMainWindow):
     def add_new_cast(self, url, title):
         """在主线程中添加新的投屏记录"""
         # 添加到界面
-        item = self.add_download_item(url, title)
+        item = self.add_download_item(url, title, time.strftime("%Y-%m-%d %H:%M:%S"))
         
         # 如果启用了自动播放，则自动打开播放器
         if self.auto_play_checkbox.isChecked():
@@ -965,8 +990,8 @@ class MainWindow(QMainWindow):
         # 如果启用了自动下载，则模拟点击下载按钮
         if self.auto_download_checkbox.isChecked():
             # 使用 QTimer 延迟一小段时间后再触发下载
-            # 这样可以确保界面完全初始化
-            QTimer.singleShot(500, lambda: item.download_btn.click())
+            # 这样可以确保界面完全初始化并且检查文件是否已存在
+            QTimer.singleShot(500, lambda: self.auto_download_if_needed(item))
         
         # 保存到历史记录
         try:
@@ -993,6 +1018,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"保存历史记录失败: {e}")
             QMessageBox.warning(self, "错误", f"保存历史记录失败: {str(e)}")
+
+    def auto_download_if_needed(self, item):
+        """只有当按钮显示"下载"时才自动点击下载按钮"""
+        if item.download_btn.text() == "下载":
+            item.download_btn.click()
 
     def clear_history(self):
         """清空历史记录"""

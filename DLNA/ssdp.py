@@ -115,7 +115,7 @@ class SSDPServer:
         self.sock_list = []
         for ip, mask in self.ip_list:
             try:
-                logger.error('添加成员 {}'.format(ip))
+                logger.info('添加成员 {}'.format(ip))
                 mreq = socket.inet_aton(SSDP_ADDR) + socket.inet_aton(ip)
                 self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
                 self.sock_list.append(Sock(ip))
@@ -139,7 +139,7 @@ class SSDPServer:
                 continue
         self.shutdown()
         for ip, mask in self.ip_list:
-            logger.error("移除成员 {}".format(ip))
+            logger.info("移除成员 {}".format(ip))
             mreq = socket.inet_aton(SSDP_ADDR) + socket.inet_aton(ip)
             try:
                 self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
