@@ -265,7 +265,82 @@ class DownloadItem(QFrame):
     def preview_media(self):
         """预览媒体，使用设置的默认播放器"""
         try:
-            # 使用DLNA渲染器播放
+            # 获取默认播放器设置
+            default_player = 'mpv'
+            try:
+                if os.path.exists('settings.json'):
+                    with open('settings.json', 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                        default_player = settings.get('default_player', 'mpv')
+            except Exception as e:
+                print(f"读取默认播放器设置失败: {e}")
+                
+            # 根据系统和默认播放器选择预览方式
+            system = platform.system()
+            
+            # 如果是Windows且默认播放器是PotPlayer
+            if system == "Windows" and default_player == 'potplayer':
+                try:
+                    # 尝试使用PotPlayer打开URL
+                    import winreg
+                    try:
+                        # 检查PotPlayer是否已注册
+                        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "potplayer") as key:
+                            pass
+                        # 使用PotPlayer URL协议
+                        os.startfile(f'potplayer://{self.url}')
+                        self.status_label.setText("✅ 已使用PotPlayer开始预览")
+                        self.status_label.setVisible(True)
+                        return
+                    except FileNotFoundError:
+                        # 尝试直接启动PotPlayer
+                        potplayer_paths = [
+                            r"C:\Program Files\DAUM\PotPlayer\PotPlayerMini64.exe",
+                            r"C:\Program Files (x86)\DAUM\PotPlayer\PotPlayerMini.exe"
+                        ]
+                        
+                        potplayer_path = None
+                        for path in potplayer_paths:
+                            if os.path.exists(path):
+                                potplayer_path = path
+                                break
+                        
+                        if potplayer_path:
+                            subprocess.Popen(f'"{potplayer_path}" "{self.url}"')
+                            self.status_label.setText("✅ 已使用PotPlayer开始预览")
+                            self.status_label.setVisible(True)
+                            return
+                except Exception as e:
+                    print(f"使用PotPlayer预览失败: {e}")
+                    # 如果PotPlayer启动失败，回退到DLNA渲染器
+            
+            # 如果是macOS且默认播放器是IINA
+            elif system == "Darwin" and default_player == 'iina':
+                try:
+                    # 检查IINA是否安装
+                    iina_path = "/Applications/IINA.app"
+                    if os.path.exists(iina_path):
+                        # 获取全屏设置
+                        fullscreen = False
+                        try:
+                            if os.path.exists('settings.json'):
+                                with open('settings.json', 'r', encoding='utf-8') as f:
+                                    settings = json.load(f)
+                                    fullscreen = settings.get('fullscreen', False)
+                        except Exception as e:
+                            print(f"读取全屏设置失败: {e}")
+                        
+                        # 使用IINA打开URL
+                        fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                        os.system(f'open -a IINA {fullscreen_arg} "{self.url}"')
+                        self.status_label.setText("✅ 已使用IINA开始预览")
+                        self.status_label.setVisible(True)
+                        return
+                except Exception as e:
+                    print(f"使用IINA预览失败: {e}")
+                    # 如果IINA启动失败，回退到DLNA渲染器
+            
+            # 默认使用DLNA渲染器
             if window.mpv_dlna_renderer:
                 # 播放媒体
                 if window.mpv_dlna_renderer.set_media_url(self.url):
@@ -382,11 +457,13 @@ class DownloadItem(QFrame):
         try:
             # 获取默认播放器设置
             default_player = 'mpv'
+            fullscreen = False
             try:
                 if os.path.exists('settings.json'):
                     with open('settings.json', 'r', encoding='utf-8') as f:
                         settings = json.load(f)
                         default_player = settings.get('default_player', 'mpv')
+                        fullscreen = settings.get('fullscreen', False)
             except Exception as e:
                 print(f"读取默认播放器设置失败: {e}")
             
@@ -443,17 +520,6 @@ class DownloadItem(QFrame):
                     subprocess.Popen(mpv_args)
             elif action == "使用IINA播放" and system == "Darwin":
                 if window.iina_controller:
-                    # 检查是否启用全屏模式
-                    fullscreen = False
-                    try:
-                        if os.path.exists('settings.json'):
-                            with open('settings.json', 'r', encoding='utf-8') as f:
-                                settings = json.load(f)
-                                fullscreen = settings.get('fullscreen', False)
-                    except Exception as e:
-                        print(f"读取全屏设置失败: {e}")
-                        fullscreen = False
-                    
                     # 使用IINA控制器播放，并传递全屏参数
                     window.iina_controller.start_iina(self.downloaded_file_path, fullscreen)
                 else:
@@ -461,7 +527,38 @@ class DownloadItem(QFrame):
                     fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
                     os.system(f'open -a IINA {fullscreen_arg} "{self.downloaded_file_path}"')
             elif action == "使用PotPlayer播放" and system == "Windows":
-                os.startfile(f'potplayer://"{self.downloaded_file_path}"')
+                try:
+                    # 检查PotPlayer是否安装
+                    import winreg
+                    # 尝试打开PotPlayer注册表项
+                    try:
+                        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "potplayer") as key:
+                            pass
+                        # 如果没有异常，说明PotPlayer已注册
+                        os.startfile(f'potplayer://"{self.downloaded_file_path}"')
+                    except FileNotFoundError:
+                        # 尝试直接启动PotPlayer
+                        potplayer_paths = [
+                            r"C:\Program Files\DAUM\PotPlayer\PotPlayerMini64.exe",
+                            r"C:\Program Files (x86)\DAUM\PotPlayer\PotPlayerMini.exe"
+                        ]
+                        
+                        potplayer_path = None
+                        for path in potplayer_paths:
+                            if os.path.exists(path):
+                                potplayer_path = path
+                                break
+                        
+                        if potplayer_path:
+                            # 使用全屏参数
+                            fullscreen_arg = "/fullscreen" if fullscreen else ""
+                            subprocess.Popen(f'"{potplayer_path}" "{self.downloaded_file_path}" {fullscreen_arg}')
+                        else:
+                            QMessageBox.warning(self, "错误", "找不到PotPlayer，请确认已安装")
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"启动PotPlayer失败: {str(e)}")
+                    # 尝试直接使用系统默认程序打开
+                    os.startfile(self.downloaded_file_path)
                 
         except Exception as e:
             QMessageBox.warning(self, "错误", f"操作失败: {str(e)}")
@@ -769,10 +866,101 @@ class MainWindow(QMainWindow):
         
         # 如果启用了自动播放，则自动打开播放器
         if self.auto_play_checkbox.isChecked():
-            if self.mpv_dlna_renderer.set_media_url(url):
-                print(f"自动打开播放器成功: {title}")
+            # 获取默认播放器设置
+            default_player = 'mpv'
+            try:
+                if os.path.exists('settings.json'):
+                    with open('settings.json', 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                        default_player = settings.get('default_player', 'mpv')
+            except Exception as e:
+                print(f"读取默认播放器设置失败: {e}")
+            
+            # 根据系统和默认播放器选择播放方式
+            system = platform.system()
+            
+            # 如果是Windows且默认播放器是PotPlayer
+            if system == "Windows" and default_player == 'potplayer':
+                try:
+                    # 尝试使用PotPlayer打开URL
+                    import winreg
+                    try:
+                        # 检查PotPlayer是否已注册
+                        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "potplayer") as key:
+                            pass
+                        # 使用PotPlayer URL协议
+                        os.startfile(f'potplayer://{url}')
+                        print(f"已使用PotPlayer自动打开播放器: {title}")
+                    except FileNotFoundError:
+                        # 尝试直接启动PotPlayer
+                        potplayer_paths = [
+                            r"C:\Program Files\DAUM\PotPlayer\PotPlayerMini64.exe",
+                            r"C:\Program Files (x86)\DAUM\PotPlayer\PotPlayerMini.exe"
+                        ]
+                        
+                        potplayer_path = None
+                        for path in potplayer_paths:
+                            if os.path.exists(path):
+                                potplayer_path = path
+                                break
+                        
+                        if potplayer_path:
+                            subprocess.Popen(f'"{potplayer_path}" "{url}"')
+                            print(f"已使用PotPlayer自动打开播放器: {title}")
+                        else:
+                            # 回退到DLNA渲染器
+                            if self.mpv_dlna_renderer.set_media_url(url):
+                                print(f"自动打开播放器成功: {title}")
+                            else:
+                                print(f"自动打开播放器失败: {title}")
+                except Exception as e:
+                    print(f"使用PotPlayer自动播放失败: {e}")
+                    # 如果PotPlayer启动失败，回退到DLNA渲染器
+                    if self.mpv_dlna_renderer.set_media_url(url):
+                        print(f"自动打开播放器成功: {title}")
+                    else:
+                        print(f"自动打开播放器失败: {title}")
+            
+            # 如果是macOS且默认播放器是IINA
+            elif system == "Darwin" and default_player == 'iina':
+                try:
+                    # 检查IINA是否安装
+                    iina_path = "/Applications/IINA.app"
+                    if os.path.exists(iina_path):
+                        # 获取全屏设置
+                        fullscreen = False
+                        try:
+                            if os.path.exists('settings.json'):
+                                with open('settings.json', 'r', encoding='utf-8') as f:
+                                    settings = json.load(f)
+                                    fullscreen = settings.get('fullscreen', False)
+                        except Exception as e:
+                            print(f"读取全屏设置失败: {e}")
+                        
+                        # 使用IINA打开URL
+                        fullscreen_arg = "--mpv-fullscreen" if fullscreen else ""
+                        os.system(f'open -a IINA {fullscreen_arg} "{url}"')
+                        print(f"已使用IINA自动打开播放器: {title}")
+                    else:
+                        # 回退到DLNA渲染器
+                        if self.mpv_dlna_renderer.set_media_url(url):
+                            print(f"自动打开播放器成功: {title}")
+                        else:
+                            print(f"自动打开播放器失败: {title}")
+                except Exception as e:
+                    print(f"使用IINA自动播放失败: {e}")
+                    # 如果IINA启动失败，回退到DLNA渲染器
+                    if self.mpv_dlna_renderer.set_media_url(url):
+                        print(f"自动打开播放器成功: {title}")
+                    else:
+                        print(f"自动打开播放器失败: {title}")
+            
+            # 默认使用DLNA渲染器
             else:
-                print(f"自动打开播放器失败: {title}")
+                if self.mpv_dlna_renderer.set_media_url(url):
+                    print(f"自动打开播放器成功: {title}")
+                else:
+                    print(f"自动打开播放器失败: {title}")
 
         # 如果启用了自动下载，则模拟点击下载按钮
         if self.auto_download_checkbox.isChecked():
@@ -858,8 +1046,14 @@ class MainWindow(QMainWindow):
                     
                     # 加载默认播放器设置
                     default_player = settings.get('default_player', 'mpv')
-                    self.mpv_radio.setChecked(default_player == 'mpv')
                     
+                    # 根据默认播放器设置选中对应的单选按钮
+                    if default_player == 'mpv':
+                        self.mpv_radio.setChecked(True)
+                    else:
+                        self.mpv_radio.setChecked(False)
+                    
+                    # 根据系统设置其他播放器选项
                     system = platform.system()
                     if system == "Darwin" and hasattr(self, 'iina_radio'):
                         self.iina_radio.setChecked(default_player == 'iina')
