@@ -2,5 +2,5 @@
   "auto_play": true,
   "auto_download": false,
   "default_player": "mpv",
-  "fullscreen": false
+  "fullscreen": true
 }

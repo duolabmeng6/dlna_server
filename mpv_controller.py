@@ -651,6 +651,13 @@ class MPVController(QObject):
             "command": ["set_property", "mute", mute]
         })
     
+    def set_title(self, title):
+        """设置播放器窗口标题"""
+        print(f"设置窗口标题: {title}")
+        return self.command({
+            "command": ["set_property", "title", title]
+        })
+    
     def stop(self):
         """停止播放并关闭MPV"""
         if self.process:
@@ -782,6 +789,7 @@ class MPVDLNARenderer:
         if play_success:
             self.is_playing = True
             self.set_state_play()
+      
 
         return play_success
     
@@ -863,7 +871,7 @@ class MPVDLNARenderer:
             self.mpv_controller.set_mute(mute)
             
         self.set_state_mute(mute)
-    
+
     # 以下方法用于更新DLNA协议状态
     
     def set_state_position(self, position):
