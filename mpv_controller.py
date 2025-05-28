@@ -369,6 +369,7 @@ class MPVController(QObject):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.current_url = None
         self.socket_path = None
         self.socket = None
         self.process = None
@@ -381,6 +382,7 @@ class MPVController(QObject):
         """启动MPV播放器并连接到IPC套接字"""
         # 如果MPV已经在运行，则直接加载新URL而不重启
         if self.process and self.socket:
+            self.current_url = url
             print("MPV已经在运行，直接加载新URL", url)
             try:
                 # 尝试直接加载新文件
@@ -392,7 +394,7 @@ class MPVController(QObject):
             except Exception as e:
                 print(f"加载新URL失败，将重启MPV: {e}")
                 # 如果加载失败，继续执行启动新实例的代码
-                self.stop()
+                self.close()
                 
         try:
             # 创建唯一的套接字路径
@@ -668,16 +670,16 @@ class MPVController(QObject):
         if self.process:
             # 设置当前URL为None
             print("停止播放")
-            self.set_pause(True)
-            
+            #self.set_pause(True)
+
             self.current_url = None
-            
+
             # 使用线程而不是QTimer来延迟关闭
             def delayed_check():
-                time.sleep(5)  # 等待5秒
+                time.sleep(10)  # 等待5秒
                 # 使用Qt的信号槽机制在主线程中安全地调用check_and_close
                 QMetaObject.invokeMethod(self, "check_and_close", Qt.QueuedConnection)
-            
+
             # 启动后台线程
             threading.Thread(target=delayed_check, daemon=True).start()
 
@@ -686,8 +688,8 @@ class MPVController(QObject):
     def check_and_close(self):
         """检查是否有新的URL投递进来"""
         print("检查是否有新的URL投递进来", self.current_url)
-        
-        if self.current_url == None:
+
+        if self.current_url is None:
             self.close()
 
     def close(self):
