@@ -71,20 +71,10 @@ class Renderer:
         """
         pass
 
-    def set_media_url(self, url: str, start: str = "0"):
+    def set_media_url(self, url: str, title: str = ""):
         """
         :param url: 媒体URL
-        :param start: 相对时间
-            --start=+56, --start=00:56
-            从开始时间 + 56秒处开始播放。
-            --start=-56, --start=-00:56
-            从结束时间 - 56秒处开始播放。
-            --start=01:10:00
-            从1小时10分处开始播放。
-            --start=50%
-            从文件中间开始播放。
-            --start=30
-            从30秒处开始播放
+        :param title: 媒体标题
         :return:
         """
         pass

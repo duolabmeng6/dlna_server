@@ -686,7 +686,6 @@ class DLNAProtocol(Protocol):
         uri = data['CurrentURI'].value
         logger.info(uri)
         self.set_state_url(uri)
-        self.renderer.set_media_url(uri)
         title = Setting.get_friendly_name()
         try:
             meta = etree.fromstring(data['CurrentURIMetaData'].value.encode())
@@ -700,6 +699,7 @@ class DLNAProtocol(Protocol):
             self.set_state('CurrentTrackMetaData', data['CurrentURIMetaData'].value)
         else:
             self.set_state('CurrentTrackMetaData', metadata.decode())
+        self.renderer.set_media_url(uri, title)
         self.renderer.set_media_title(title)
         self.renderer.set_media_resume()
         self.set_state('CurrentTrackTitle', title)

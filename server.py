@@ -57,15 +57,11 @@ class DLNAServer:
                 self.current_url = None
                 self.current_title = None
             
-            def set_media_url(self, uri, start="0"):
+            def set_media_url(self, uri, title=""):
                 self.current_url = uri
-            
-            def set_media_title(self, title):
                 self.current_title = title
-                if self.current_url:  # 如果URL已经设置，通知投屏
-                    self.server._notify_cast(self.current_url, self.current_title)
-                    
-            
+                self.server._notify_cast(self.current_url, self.current_title)
+                
         
         try:
             # 确保设置了正确的名称

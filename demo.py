@@ -16,10 +16,8 @@ def start_server():
         def __init__(self):
             super().__init__()
         
-        def set_media_url(self, uri, start="0"):
+        def set_media_url(self, uri, title=""):
             self.current_url = uri
-            
-        def set_media_title(self, title):
             self.current_title = title
             print(f"Media Info - URL: {self.current_url}, Title: {self.current_title}")
             
