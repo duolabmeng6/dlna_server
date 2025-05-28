@@ -7,16 +7,21 @@ import os
 import yt_dlp
 from urllib.parse import urlparse
 import platform
+import subprocess
+import socket
+import tempfile
+import random
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QProgressBar, QScrollArea, QFrame,
     QMessageBox, QSizePolicy, QCheckBox, QLineEdit,
-    QGroupBox
+    QGroupBox, QInputDialog, QButtonGroup, QRadioButton
 )
 from PySide6.QtCore import Qt, Signal, QObject, Slot, QTimer, QMetaObject, Q_ARG
 
 from server import DLNAServer
+from mpv_controller import MPVController, MPVDLNARenderer, get_base_path, set_mpv_default_path
 
 # 下载状态信号类
 class DownloadSignals(QObject):
@@ -201,16 +206,10 @@ class DownloadItem(QFrame):
         self.stop_btn.setVisible(False)
         btn_layout.addWidget(self.stop_btn)
 
-        # 根据平台添加播放按钮
-        system = platform.system()
-        if system == "Darwin":
-            self.player_btn = QPushButton("IINA")
-            self.player_btn.clicked.connect(self.open_in_iina)
-            btn_layout.addWidget(self.player_btn)
-        elif system == "Windows":
-            self.player_btn = QPushButton("PotPlayer")
-            self.player_btn.clicked.connect(self.open_in_potplayer)
-            btn_layout.addWidget(self.player_btn)
+        # 添加预览按钮
+        self.preview_btn = QPushButton("预览")
+        self.preview_btn.clicked.connect(self.preview_media)
+        btn_layout.addWidget(self.preview_btn)
 
         # 复制按钮
         self.copy_btn = QPushButton("复制")
@@ -262,6 +261,29 @@ class DownloadItem(QFrame):
                     break
         except Exception as e:
             print(f"检查文件是否存在时出错: {e}")
+
+    def preview_media(self):
+        """预览媒体，使用设置的默认播放器"""
+        try:
+            # 使用DLNA渲染器播放
+            if window.mpv_dlna_renderer:
+                # 设置标题（必须在播放前设置，这样在播放时才能同步给DLNA）
+                window.mpv_dlna_renderer.set_media_title(self.title)
+                
+                # 播放媒体
+                if window.mpv_dlna_renderer.set_media_url(self.url):
+                    self.status_label.setText("✅ 已开始预览")
+                    self.status_label.setVisible(True)
+                else:
+                    self.status_label.setText("❌ 播放器启动失败")
+                    self.status_label.setVisible(True)
+            else:
+                self.status_label.setText("❌ 播放器未初始化")
+                self.status_label.setVisible(True)
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"预览失败: {str(e)}")
+            self.status_label.setText(f"❌ 预览失败: {str(e)}")
+            self.status_label.setVisible(True)
 
     def start_download(self):
         """开始下载或打开已存在的文件"""
@@ -354,29 +376,6 @@ class DownloadItem(QFrame):
         self.status_label.setVisible(True)
         self.adjustSize()
 
-    def open_in_iina(self):
-        try:
-            os.system(f'open -a IINA "{self.url}"')
-        except Exception as e:
-            QMessageBox.warning(self, "错误", f"打开IINA失败: {str(e)}")
-    
-    def copy_url(self):
-        """复制链接到剪贴板"""
-        clipboard = QApplication.clipboard()
-        clipboard.setText(self.url)
-        self.status_label.setText("✅ 链接已复制到剪贴板")
-        # 3秒后清除状态
-        QTimer.singleShot(3000, lambda: self.status_label.setText(""))
-    
-    def open_in_potplayer(self):
-        """在 PotPlayer 中打开链接"""
-        try:
-            # 使用 potplayer 协议打开链接
-            os.startfile(f'potplayer://{self.url}')
-            self.status_label.setText("✅ 已在 PotPlayer 中打开")
-        except Exception as e:
-            QMessageBox.warning(self, "错误", f"打开 PotPlayer 失败: {str(e)}")
-
     def open_file(self):
         """打开文件或文件所在目录"""
         if not self.downloaded_file_path or not Path(self.downloaded_file_path).exists():
@@ -384,12 +383,85 @@ class DownloadItem(QFrame):
             return
             
         try:
-            if platform.system() == "Darwin":  # macOS
-                os.system(f'open -R "{self.downloaded_file_path}"')
-            elif platform.system() == "Windows":  # Windows
-                os.system(f'explorer /select,"{self.downloaded_file_path}"')
+            # 获取默认播放器设置
+            default_player = 'mpv'
+            try:
+                if os.path.exists('settings.json'):
+                    with open('settings.json', 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                        default_player = settings.get('default_player', 'mpv')
+            except Exception as e:
+                print(f"读取默认播放器设置失败: {e}")
+            
+            # 弹出选择对话框
+            options = ["打开文件所在目录", "使用MPV播放"]
+            
+            # 根据系统添加其他选项
+            system = platform.system()
+            if system == "Darwin":
+                options.append("使用IINA播放")
+            elif system == "Windows":
+                options.append("使用PotPlayer播放")
+            
+            # 设置默认选中项
+            default_index = 0
+            if default_player == 'mpv':
+                default_index = 1
+            elif default_player == 'iina' and system == "Darwin":
+                default_index = 2
+            elif default_player == 'potplayer' and system == "Windows":
+                default_index = 2
+            
+            # 显示选择对话框
+            action, ok = QInputDialog.getItem(
+                self, 
+                "选择操作", 
+                "请选择要执行的操作:", 
+                options, 
+                default_index, 
+                False
+            )
+            
+            if not ok:
+                return
+                
+            # 根据选择执行操作
+            if action == "打开文件所在目录":
+                if system == "Darwin":  # macOS
+                    os.system(f'open -R "{self.downloaded_file_path}"')
+                elif system == "Windows":  # Windows
+                    os.system(f'explorer /select,"{self.downloaded_file_path}"')
+            elif action == "使用MPV播放":
+                if window.mpv_controller:
+                    window.mpv_controller.start_mpv(self.downloaded_file_path)
+                else:
+                    mpv_path = set_mpv_default_path()
+                    mpv_args = [
+                        mpv_path,
+                        '--force-window=yes',
+                        '--ontop',
+                        '--keep-open=yes',
+                        self.downloaded_file_path
+                    ]
+                    subprocess.Popen(mpv_args)
+            elif action == "使用IINA播放" and system == "Darwin":
+                if window.iina_controller:
+                    window.iina_controller.start_iina(self.downloaded_file_path)
+                else:
+                    os.system(f'open -a IINA "{self.downloaded_file_path}"')
+            elif action == "使用PotPlayer播放" and system == "Windows":
+                os.startfile(f'potplayer://"{self.downloaded_file_path}"')
+                
         except Exception as e:
-            QMessageBox.warning(self, "错误", f"打开文件失败: {str(e)}")
+            QMessageBox.warning(self, "错误", f"操作失败: {str(e)}")
+
+    def copy_url(self):
+        """复制链接到剪贴板"""
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.url)
+        self.status_label.setText("✅ 链接已复制到剪贴板")
+        # 3秒后清除状态
+        QTimer.singleShot(3000, lambda: self.status_label.setText(""))
 
 # 主窗口
 class MainWindow(QMainWindow):
@@ -402,12 +474,32 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 600)  # 设置最小尺寸
         self.resize(800, 600)  # 设置默认尺寸
         
+        # 创建MPV控制器
+        self.mpv_controller = MPVController()
+        
+        # 在macOS上创建IINA控制器
+        self.iina_controller = None
+        if platform.system() == "Darwin":
+            from mpv_controller import IINAController
+            self.iina_controller = IINAController()
+        
         # 创建下载管理器
         self.download_manager = DownloadManager()
         self.setup_signals()
         
         # 创建DLNA服务器
         self.dlna_server = DLNAServer(name="龙龙的电视机")
+        # 添加自定义的MPV渲染器
+        self.mpv_dlna_renderer = MPVDLNARenderer(self.dlna_server)
+        # 设置MPV控制器
+        self.mpv_dlna_renderer.set_mpv_controller(self.mpv_controller)
+        self.mpv_controller.dlna_server = self.dlna_server
+        
+        # 设置IINA控制器（如果存在）
+        if self.iina_controller:
+            self.mpv_dlna_renderer.set_iina_controller(self.iina_controller)
+            self.iina_controller.dlna_server = self.dlna_server
+        
         # 添加投屏回调
         self.dlna_server.add_cast_callback(self.on_new_cast)
         # 在后台线程启动服务器
@@ -428,6 +520,9 @@ class MainWindow(QMainWindow):
         
         # 连接信号到槽
         self.update_button_state.connect(self._update_button_state)
+        
+        # 关联MPV控制器信号
+        self.mpv_controller.mpv_connection_error.connect(self.on_mpv_connection_error)
     
     def setup_signals(self):
         self.download_manager.signals.progress.connect(self.handle_download_progress)
@@ -522,22 +617,79 @@ class MainWindow(QMainWindow):
         bottom_group = QGroupBox()
         bottom_layout = QHBoxLayout(bottom_group)
         
+        # 第一列：自动播放选项
+        first_column = QWidget()
+        first_column_layout = QVBoxLayout(first_column)
+        first_column_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.auto_play_checkbox = QCheckBox("收到投屏自动打开播放器")
         self.auto_play_checkbox.stateChanged.connect(self.on_auto_play_changed)
-        bottom_layout.addWidget(self.auto_play_checkbox)
+        first_column_layout.addWidget(self.auto_play_checkbox)
 
         self.auto_download_checkbox = QCheckBox("投屏后自动下载")
         self.auto_download_checkbox.stateChanged.connect(self.on_auto_download_changed)
-        bottom_layout.addWidget(self.auto_download_checkbox)
+        first_column_layout.addWidget(self.auto_download_checkbox)
+        
+        # 添加全屏选项
+        self.fullscreen_checkbox = QCheckBox("全屏播放")
+        self.fullscreen_checkbox.stateChanged.connect(self.on_fullscreen_changed)
+        first_column_layout.addWidget(self.fullscreen_checkbox)
+        
+        bottom_layout.addWidget(first_column)
+        
+        # 第二列：默认播放器选择
+        second_column = QWidget()
+        second_column_layout = QVBoxLayout(second_column)
+        second_column_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 默认播放器选项
+        player_label = QLabel("默认播放器:")
+        second_column_layout.addWidget(player_label)
+        
+        player_container = QWidget()
+        player_layout = QHBoxLayout(player_container)
+        player_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 创建单选按钮组
+        self.player_group = QButtonGroup(self)
+        
+        # 添加MPV选项
+        self.mpv_radio = QRadioButton("MPV")
+        self.mpv_radio.clicked.connect(lambda: self.on_default_player_changed("mpv"))
+        self.player_group.addButton(self.mpv_radio)
+        player_layout.addWidget(self.mpv_radio)
+        
+        # 根据平台添加其他播放器选项
+        system = platform.system()
+        if system == "Darwin":
+            self.iina_radio = QRadioButton("IINA")
+            self.iina_radio.clicked.connect(lambda: self.on_default_player_changed("iina"))
+            self.player_group.addButton(self.iina_radio)
+            player_layout.addWidget(self.iina_radio)
+        elif system == "Windows":
+            self.potplayer_radio = QRadioButton("PotPlayer")
+            self.potplayer_radio.clicked.connect(lambda: self.on_default_player_changed("potplayer"))
+            self.player_group.addButton(self.potplayer_radio)
+            player_layout.addWidget(self.potplayer_radio)
+        
+        second_column_layout.addWidget(player_container)
+        bottom_layout.addWidget(second_column)
+        
+        # 第三列：操作按钮
+        third_column = QWidget()
+        third_column_layout = QHBoxLayout(third_column)
+        third_column_layout.setContentsMargins(0, 0, 0, 0)
         
         # 添加打开下载文件夹按钮
         open_downloads_btn = QPushButton("打开下载文件夹")
         open_downloads_btn.clicked.connect(self.open_downloads_folder)
-        bottom_layout.addWidget(open_downloads_btn)
+        third_column_layout.addWidget(open_downloads_btn)
         
         clear_btn = QPushButton("清空记录")
         clear_btn.clicked.connect(self.clear_history)
-        bottom_layout.addWidget(clear_btn)
+        third_column_layout.addWidget(clear_btn)
+        
+        bottom_layout.addWidget(third_column)
         bottom_layout.addStretch()
         
         main_layout.addWidget(bottom_group)
@@ -606,17 +758,14 @@ class MainWindow(QMainWindow):
         
         # 如果启用了自动播放，则自动打开播放器
         if self.auto_play_checkbox.isChecked():
-            system = platform.system()
-            if system == "Darwin":
-                try:
-                    os.system(f'open -a IINA "{url}"')
-                except Exception as e:
-                    print(f"自动打开IINA失败: {e}")
-            elif system == "Windows":
-                try:
-                    os.startfile(f'potplayer://{url}')
-                except Exception as e:
-                    print(f"自动打开PotPlayer失败: {e}")
+            # 设置标题（必须在播放前设置，这样在播放时才能同步给DLNA）
+            self.mpv_dlna_renderer.set_media_title(title)
+            
+            # 使用DLNA渲染器播放，它会根据设置选择正确的播放器
+            if self.mpv_dlna_renderer.set_media_url(url):
+                print(f"自动打开播放器成功: {title}")
+            else:
+                print(f"自动打开播放器失败: {title}")
 
         # 如果启用了自动下载，则模拟点击下载按钮
         if self.auto_download_checkbox.isChecked():
@@ -698,8 +847,19 @@ class MainWindow(QMainWindow):
                     settings = json.load(f)
                     self.auto_play_checkbox.setChecked(settings.get('auto_play', False))
                     self.auto_download_checkbox.setChecked(settings.get('auto_download', False))
+                    self.fullscreen_checkbox.setChecked(settings.get('fullscreen', False))
+                    
+                    # 加载默认播放器设置
+                    default_player = settings.get('default_player', 'mpv')
+                    self.mpv_radio.setChecked(default_player == 'mpv')
+                    
+                    system = platform.system()
+                    if system == "Darwin" and hasattr(self, 'iina_radio'):
+                        self.iina_radio.setChecked(default_player == 'iina')
+                    elif system == "Windows" and hasattr(self, 'potplayer_radio'):
+                        self.potplayer_radio.setChecked(default_player == 'potplayer')
         except Exception as e:
-            print(f"加载自动播放设置失败: {e}")
+            print(f"加载设置失败: {e}")
 
     def save_auto_play_setting(self):
         """保存自动播放设置"""
@@ -711,11 +871,28 @@ class MainWindow(QMainWindow):
             
             settings['auto_play'] = self.auto_play_checkbox.isChecked()
             settings['auto_download'] = self.auto_download_checkbox.isChecked()
+            settings['fullscreen'] = self.fullscreen_checkbox.isChecked()
             
             with open('settings.json', 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"保存自动播放设置失败: {e}")
+            print(f"保存设置失败: {e}")
+            
+    def on_default_player_changed(self, player_type):
+        """处理默认播放器选择变化"""
+        try:
+            # 保存设置
+            settings = {}
+            if os.path.exists('settings.json'):
+                with open('settings.json', 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+            
+            settings['default_player'] = player_type
+            
+            with open('settings.json', 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"更新默认播放器设置失败: {e}")
 
     def on_auto_play_changed(self, state):
         """处理自动播放复选框状态改变"""
@@ -725,12 +902,19 @@ class MainWindow(QMainWindow):
         """处理自动下载复选框状态改变"""
         self.save_auto_play_setting()
 
+    def on_fullscreen_changed(self, state):
+        """处理全屏复选框状态改变"""
+        self.save_auto_play_setting()
+
     def start_server(self):
         """启动DLNA服务器"""
         if self.server_running:
             return
             
         try:
+            # 设置MPV渲染器到服务器
+            self.dlna_server.mpv_dlna_renderer = self.mpv_dlna_renderer
+            
             # 启动服务器
             self.server_thread = threading.Thread(target=self.dlna_server.start, daemon=True)
             self.server_thread.start()
@@ -834,8 +1018,15 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "错误", f"打开下载文件夹失败: {str(e)}")
 
+    def on_mpv_connection_error(self, error_msg):
+        """处理MPV连接错误"""
+        QMessageBox.warning(self, "错误", f"MPV连接错误: {error_msg}")
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
+    # 设置全局变量供mpv_controller.py使用
+    import mpv_controller
+    mpv_controller.window = window
     window.show()
     sys.exit(app.exec())

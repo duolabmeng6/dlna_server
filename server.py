@@ -51,24 +51,64 @@ class DLNAServer:
         
         # 创建自定义 Renderer
         class CustomRenderer(Renderer):
-            def __init__(self, server):
+            def __init__(self, server, external_renderer=None):
                 super().__init__()
                 self.server = server
                 self.current_url = None
                 self.current_title = None
+                self.external_renderer = external_renderer
             
-            def set_media_url(self, uri, title=""):
+            def set_media_url(self, uri, start="0"):
                 self.current_url = uri
-                self.current_title = title
-                self.server._notify_cast(self.current_url, self.current_title)
-                
+                self.external_renderer.set_media_url(uri)
+                if self.current_url:  # 如果URL已经设置，通知投屏
+                    self.server._notify_cast(self.current_url, self.current_title)
+            
+            def set_media_pause(self):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_pause()
+            
+            def set_media_resume(self):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_resume()
+            
+            def set_media_stop(self):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_stop()
+            
+            def set_media_volume(self, volume):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_volume(volume)
+            
+            def set_media_mute(self, mute):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_mute(mute)
+            
+            def set_media_position(self, position):
+                # 如果有外部渲染器，则使用外部渲染器处理
+                if self.external_renderer:
+                    self.external_renderer.set_media_position(position)
         
         try:
             # 确保设置了正确的名称
             Setting.temp_friendly_name = self.name
             
+            # 获取外部渲染器 - 这个会从app.py中获取，由于无法直接引用，
+            # 我们使用传入的外部渲染器实例
+            external_renderer = None
+            # 判断是否已经被调用时设置了外部渲染器
+            for attr_name in dir(self):
+                if attr_name == 'mpv_dlna_renderer':
+                    external_renderer = getattr(self, 'mpv_dlna_renderer')
+                    break
+            
             # 创建服务实例
-            self.renderer = CustomRenderer(self)
+            self.renderer = CustomRenderer(self, external_renderer)
             protocol = DLNAProtocol()
             self.service = Service(renderer=self.renderer, protocol=protocol)
             self.running = True
