@@ -63,10 +63,14 @@ class DownloadManager(QObject):
                         
                     # 计算进度
                     progress = 0
-                    if 'total_bytes' in d:
-                        progress = d['downloaded_bytes'] / d['total_bytes']
-                    elif 'total_bytes_estimate' in d:
-                        progress = d['downloaded_bytes'] / d['total_bytes_estimate']
+                    downloaded_bytes = d.get('downloaded_bytes', 0)
+                    if downloaded_bytes is None:
+                        downloaded_bytes = 0
+                        
+                    if 'total_bytes' in d and d['total_bytes'] is not None and d['total_bytes'] > 0:
+                        progress = downloaded_bytes / d['total_bytes']
+                    elif 'total_bytes_estimate' in d and d['total_bytes_estimate'] is not None and d['total_bytes_estimate'] > 0:
+                        progress = downloaded_bytes / d['total_bytes_estimate']
                     
                     # 确保进度只增不减
                     if progress > max_progress:
@@ -74,9 +78,16 @@ class DownloadManager(QObject):
                     else:
                         progress = max_progress
                     
-                    # 计算速度
-                    speed = d.get('speed', 0) / 1024 / 1024  # MB/s
+                    # 计算速度,避免None值
+                    speed = d.get('speed', 0)
+                    if speed is None:
+                        speed = 0
+                    speed = speed / 1024 / 1024  # MB/s
+                    
+                    # 获取预计剩余时间,避免None值
                     eta = d.get('eta', 0)
+                    if eta is None:
+                        eta = 0
                     
                     # 发送进度信号
                     self.signals.progress.emit(download_id, progress, speed, eta)

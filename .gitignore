@@ -31,3 +31,5 @@ coverage
 
 __pycache__/
 /.idea
+/downloads
+cast_history.json
