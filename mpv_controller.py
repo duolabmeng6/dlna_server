@@ -286,8 +286,6 @@ class IINAController(QObject):
             cmd.append("--mpv-input-ipc-server=" + self.socket_path)
             cmd.append("--mpv-title=龙龙的电视机")
             
-            if use_fullscreen:
-                cmd.append("--mpv-fullscreen")
             
             # 添加URL
             cmd.append(url)

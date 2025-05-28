@@ -938,7 +938,7 @@ class MainWindow(QMainWindow):
                             print(f"读取全屏设置失败: {e}")
                         
                         # 使用IINA打开URL
-                        fullscreen_arg = "--fullscreen" if fullscreen else ""
+                        fullscreen_arg = "" if fullscreen else ""
                         os.system(f'open -a IINA {fullscreen_arg} "{url}"')
                         print(f"已使用IINA自动打开播放器: {title}")
                     else:
